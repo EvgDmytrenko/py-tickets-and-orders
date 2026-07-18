@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models import UniqueConstraint
 
 
 class Genre(models.Model):
@@ -75,6 +76,10 @@ class Ticket(models.Model):
     row = models.IntegerField()
     seat = models.IntegerField()
 
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["row", "seat", "movie_session"], name="unique_ticket_movie_session_row_seat")
+        ]
     def __str__(self) -> str:
         return (f"<Ticket: {self.movie_session.movie.title} "
                 f"{self.order.created_at.strftime('%Y-%m-%d %H:%M:%S')} "

@@ -1,6 +1,6 @@
 from django.db import transaction
 from django.db.models import QuerySet
-from django.utils.dateparse import parse_datetime
+from datetime import datetime
 
 from db.models import Ticket, User, Order
 
@@ -11,23 +11,28 @@ def create_order(
         username: str,
         date: str | None = None) -> Order:
 
-    user = User.objects.get_or_create(username=username)
-    if date is not None:
-        order = Order(user=user)
-        order.created_at = parse_datetime(date)
-        order.save()
-    else:
-        order = Order.objects.create(user=user)
+    user, _ = User.objects.get_or_create(username=username)
 
-    tickets_to_base = [
-        Ticket(
+    order = Order.objects.create(user=user)
+    if date is not None:
+        try:
+            order.created_at = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            order.created_at = datetime.strptime(date, "%Y-%m-%d %H:%M")
+
+    order.save(update_fields=["created_at"])
+
+    tickets_to_base = []
+    for ticket in tickets:
+        ticket_obj = Ticket(
             row=ticket["row"],
             seat=ticket["seat"],
             movie_session_id=ticket["movie_session"],
             order=order
         )
-        for ticket in tickets
-    ]
+        ticket_obj.full_clean()
+        tickets_to_base.append(ticket_obj)
+
     Ticket.objects.bulk_create(tickets_to_base)
 
     return order

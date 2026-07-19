@@ -1,6 +1,9 @@
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import UniqueConstraint
+
+import settings
 
 
 class Genre(models.Model):
@@ -61,7 +64,7 @@ class MovieSession(models.Model):
 
 class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
-    user = models.ForeignKey(to=User, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     class Meta:
         ordering = ["-created_at"]
@@ -76,6 +79,18 @@ class Ticket(models.Model):
     row = models.IntegerField()
     seat = models.IntegerField()
 
+    def clean(self) -> None:
+        if not (1 <= self.row <= self.movie_session.cinema_hall.rows):
+            raise ValidationError({'row': [f'row number must be in available range: '
+                                          f'(1, rows): (1, {self.movie_session.cinema_hall.rows})']})
+        if not (1 <= self.seat <= self.movie_session.cinema_hall.seats_in_row):
+            raise ValidationError({'seat': [f'seat number must be in available range: '
+                                           f'(1, seats_in_row): (1, {self.movie_session.cinema_hall.seats_in_row})']})
+
+    def save(self, *args, **kwargs) -> None:
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
     class Meta:
         constraints = [
             UniqueConstraint(fields=["row", "seat", "movie_session"], name="unique_ticket_movie_session_row_seat")
@@ -85,3 +100,6 @@ class Ticket(models.Model):
                 f"{self.order.created_at.strftime('%Y-%m-%d %H:%M:%S')} "
                 f"(row: {self.row}, seat: {self.seat})>")
 
+
+class User(AbstractUser):
+    pass
